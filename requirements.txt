@@ -2,3 +2,4 @@ fastapi>=0.115,<1
 numpy>=2,<3
 sounddevice>=0.5,<1
 uvicorn>=0.34,<1
+cryptography>=44,<50

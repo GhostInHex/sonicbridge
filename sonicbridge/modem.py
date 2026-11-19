@@ -11,25 +11,42 @@ RATE = 48_000
 FREQUENCIES = (1200, 2200)
 SYNC = np.unpackbits(np.frombuffer(b"\x55" * 4 + b"\xd3\x91", dtype=np.uint8))
 HEADER = struct.Struct("!BBQBBH")
+PREFIX_SAMPLES = (len(SYNC) + HEADER.size * 8) * 960
 CHUNK = 64
 MAX_FILE = 2048
 MAX_NAME = 96
-MAX_CHUNKS = (MAX_FILE + MAX_NAME + 2 + CHUNK - 1) // CHUNK
+MAX_CHUNKS = (MAX_FILE + MAX_NAME + 1 + 49 + CHUNK - 1) // CHUNK
+BITMAP_BYTES = (MAX_CHUNKS + 7) // 8
 
 
 class Profile(IntEnum):
     BALANCED = 0
     ROBUST = 1
+    FAST = 2
 
     @property
     def samples(self):
-        return 960 if self is Profile.BALANCED else 1920
+        return (960, 1920, 480)[self]
 
 
 class Kind(IntEnum):
     DATA = 1
     ACK = 2
     NACK = 3
+    PING = 4
+    QUERY = 5
+    HAVE = 6
+    LOCKED = 7
+
+
+WIRE_FLAGS = {
+    (Kind.DATA, Profile.BALANCED): 2, (Kind.DATA, Profile.ROBUST): 3,
+    (Kind.ACK, Profile.BALANCED): 4, (Kind.NACK, Profile.BALANCED): 6,
+    (Kind.DATA, Profile.FAST): 7, (Kind.ACK, Profile.FAST): 8,
+    (Kind.PING, Profile.BALANCED): 9, (Kind.QUERY, Profile.BALANCED): 10,
+    (Kind.HAVE, Profile.BALANCED): 11, (Kind.LOCKED, Profile.BALANCED): 12,
+}
+PACKET_TYPES = {flag: pair for pair, flag in WIRE_FLAGS.items()}
 
 
 @dataclass(frozen=True)
@@ -42,7 +59,7 @@ class Packet:
     payload: bytes
 
     def header(self):
-        fields = struct.pack("!BBQBB", self.kind * 2 + self.profile, len(self.payload),
+        fields = struct.pack("!BBQBB", WIRE_FLAGS[self.kind, self.profile], len(self.payload),
                              self.transfer, self.index, self.total)
         return fields + struct.pack("!H", crc_hqx(fields, 0xFFFF))
 
@@ -63,7 +80,7 @@ def to_bits(data):
 
 
 def body_bits(data, profile):
-    if profile is Profile.BALANCED:
+    if profile is not Profile.ROBUST:
         return to_bits(data)
     nibbles = to_bits(data).reshape(-1, 4) @ np.array([8, 4, 2, 1])
     # Transmit each bit position across all codewords before the next.
@@ -71,7 +88,7 @@ def body_bits(data, profile):
 
 
 def decode_body(bits, profile):
-    if profile is Profile.BALANCED:
+    if profile is not Profile.ROBUST:
         return np.packbits(bits).tobytes()
     words = bits.reshape(7, -1).T
     distances = np.count_nonzero(words[:, None] != HAMMING, axis=2)
@@ -123,8 +140,8 @@ class Decoder:
             if self.pending is None and not self.find_header():
                 break
             kind, profile, length, header, transfer, index, total = self.pending
-            prefix = (len(SYNC) + HEADER.size * 8) * Profile.BALANCED.samples
-            factor = 8 if profile is Profile.BALANCED else 14
+            prefix = PREFIX_SAMPLES
+            factor = 14 if profile is Profile.ROBUST else 8
             count = (length + 4) * factor
             end = prefix + count * profile.samples
             # The sync grid can place the estimated boundary slightly early or late.
@@ -161,18 +178,25 @@ class Decoder:
         bits = decisions(energy)
         matches = bits[indices] == SYNC
         valid = np.flatnonzero((matches[:, :32].sum(axis=1) >= 30) & matches[:, 32:].all(axis=1))
-        scores = (energy.max(axis=0) - energy.min(axis=0)) / (energy.sum(axis=0) + 1e-8)
-        for candidate in valid[np.argsort(-scores[indices[valid]].mean(axis=1))]:
+        # The correctly centered preamble maximizes coherent energy in its expected tones.
+        # A normalized ratio can favor a weak off-center window and misalign Fast symbols.
+        preamble_energy = energy[1] - energy[0]
+        scores = preamble_energy[indices[valid]] @ (2 * SYNC.astype(float) - 1)
+        for candidate in valid[np.argsort(-scores)]:
             start = candidates[candidate]
             offsets = start // step + np.arange(len(SYNC), symbols) * (width // step)
             header = np.packbits(bits[offsets]).tobytes()
             flags, length, transfer, index, total, checksum = HEADER.unpack(header)
-            if flags not in (2, 3, 4, 6) or crc_hqx(header[:-2], 0xFFFF) != checksum:
+            if flags not in PACKET_TYPES or crc_hqx(header[:-2], 0xFFFF) != checksum:
                 continue
-            kind, profile = Kind(flags // 2), Profile(flags % 2)
+            kind, profile = PACKET_TYPES[flags]
             if not 0 <= index < total <= MAX_CHUNKS:
                 continue
-            valid_length = {Kind.ACK: length == 1, Kind.NACK: length == 0, Kind.DATA: 1 <= length <= CHUNK}
+            valid_length = {
+                Kind.ACK: length == 1, Kind.DATA: 1 <= length <= CHUNK,
+                Kind.HAVE: length == BITMAP_BYTES, Kind.NACK: length == 0,
+                Kind.PING: length == 0, Kind.QUERY: length == 0, Kind.LOCKED: length == 0,
+            }
             if not valid_length[kind]:
                 continue
             self.samples = self.samples[start:]

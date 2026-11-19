@@ -21,7 +21,7 @@ class AcousticLinkTests(unittest.TestCase):
     def test_streaming_packets_at_arbitrary_offset_with_noise(self):
         random = np.random.default_rng(11)
         packets = [Packet(Kind.DATA, profile, 41, number, 2, bytes(range(64)))
-                   for number, profile in enumerate(Profile)]
+                   for number, profile in enumerate((Profile.BALANCED, Profile.ROBUST))]
         waveform = np.concatenate([np.zeros(3149), encode(packets[0]), np.zeros(2083),
                                    encode(packets[1]), np.zeros(1600)])
         waveform += random.normal(0, 0.10, len(waveform))
@@ -59,7 +59,7 @@ class AcousticLinkTests(unittest.TestCase):
         inbox = []
         report = lambda kind, text: events.append((kind, text))
         message = Message("example.bin", bytes(range(200)))
-        receiver = Receiver(report, inbox.append, drop_ack=2)
+        receiver = Receiver(report, lambda message, _: inbox.append(message), drop_ack=2)
         transport = Simulation(receiver, cancel, lambda _: None, report, noise=.03)
         send_message(message, "adaptive", transport.exchange, cancel, report, lambda *_: None)
         self.assertEqual(inbox, [message])
