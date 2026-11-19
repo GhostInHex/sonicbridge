@@ -23,6 +23,8 @@ Open `http://127.0.0.1:8000`. Keep the server bound to localhost. Audio plays an
 
 ## Present the project at a hackathon
 
+Use the [hackathon field guide](docs/HACKATHON_GUIDE.md) for setup on both laptops, the presentation script, and troubleshooting. Open the [visual guide](docs/hackathon/index.html) from an extracted or cloned copy in your browser. It works offline.
+
 Start with the live link if you have two laptops. Put one in **Receive** mode, then click **Test link** on the other and send a short message. The reply travels through the same audio channel as the message. The probe shows round-trip time, tone separation at the receiving laptop, and a suggested starting profile.
 
 Then show recovery on one laptop:

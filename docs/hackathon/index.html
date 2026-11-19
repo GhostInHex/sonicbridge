@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>SonicBridge | Hackathon field guide</title>
+<style>
+:root{color-scheme:dark;--ink:#edf5fa;--dim:#aabed0;--night:#101724;--panel:#172537;--line:#34465b;--mint:#78eed5;--warm:#ffd197;--mono:"IBM Plex Mono",ui-monospace,monospace;font-family:Inter,system-ui,sans-serif;background:var(--night);color:var(--ink)}
+*{box-sizing:border-box}body{margin:0}a{color:var(--mint);text-underline-offset:.25em}button{font:inherit}::selection{background:var(--mint);color:var(--night)}:focus-visible{outline:2px solid var(--mint);outline-offset:4px} [hidden]{display:none!important}
+header{border-bottom:1px solid var(--line)}.mast,.shell{width:min(1180px,calc(100% - 64px));margin:auto}.mast{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{color:var(--ink);font-weight:760;text-decoration:none;font-size:1.12rem;display:flex;align-items:center;gap:11px}.brand svg{color:var(--mint)}.mast>span,.label, time{font: .76rem var(--mono);color:var(--dim)}
+.shell{display:grid;grid-template-columns:186px minmax(0,1fr);gap:clamp(24px,5vw,72px);padding:38px 0 50px}nav{align-self:start;position:sticky;top:20px}nav ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}nav a{display:flex;align-items:baseline;gap:10px;padding:11px 9px;color:var(--dim);text-decoration:none;border-radius:6px;font-size:.9rem;white-space:nowrap}nav a span{font: .72rem var(--mono)}nav a:hover,nav [aria-current="page"]{background:var(--panel);color:var(--mint)}
+.page{min-width:0}.page+.page{margin-top:45px}.page h1,.page h2,.page p{margin-top:0}h1{font-size:clamp(2.45rem,6.2vw,5.35rem);line-height:.99;letter-spacing:-.04em;margin-bottom:20px;text-wrap:balance}h2{font-size:clamp(1.25rem,2.8vw,1.6rem);letter-spacing:-.023em;margin-bottom:10px}h3{font-size:1rem;margin:0 0 8px}p,li,summary{line-height:1.6}p{max-width:69ch;color:var(--dim)}.lead{font-size:clamp(1rem,2vw,1.25rem);margin-bottom:24px}.actions{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin:22px 0}.primary{display:inline-block;background:var(--mint);color:#102622;text-decoration:none;font-weight:750;padding:10px 15px;border-radius:7px}.primary:hover{background:#b4f9e8}.subtle{font-size:.88rem}section>section,.block,.page p.block{margin-top:28px}
+.channel{margin:30px 0 0;border:1px solid var(--line);border-radius:14px;background:#101e2d;padding:18px;overflow:hidden}.channel svg{width:100%;height:auto;display:block}.channel figcaption{display:flex;justify-content:space-between;gap:12px;padding-top:10px;font:clamp(.62rem,1.6vw,.8rem) var(--mono);color:var(--dim)}.channel figcaption strong{color:var(--mint);font-weight:600}.channel figcaption span:last-child{text-align:right}
+.columns{display:grid;grid-template-columns:1fr 1fr;gap:22px}.columns section{border-top:1px solid var(--line);padding-top:16px}.columns ol,.steps{padding-left:1.4em;margin:0}.columns li,.steps li{padding:3px 0 6px 4px}.columns li::marker,.steps li::marker{color:var(--mint);font-family:var(--mono)}.note{background:#202d39;border-radius:9px;padding:13px 15px;color:var(--ink);margin:22px 0}.note strong{color:var(--warm)}
+details{border-top:1px solid var(--line);padding:12px 0}summary{cursor:pointer;font-weight:720;color:var(--ink)}details p{margin:9px 0}pre{font: .81rem/1.65 var(--mono);background:#0c1320;border:1px solid var(--line);border-radius:8px;overflow:auto;padding:13px;margin:9px 0 14px;tab-size:2}code{font-family:var(--mono);overflow-wrap:anywhere}.command{min-width:0}.copy{background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--mint);padding:6px 12px;cursor:pointer}.copy:hover{border-color:var(--mint)}.copy-status{font-size:.82rem;color:var(--dim);margin-inline-start:8px}.cue{display:grid;grid-template-columns:68px 1fr;gap:12px;border-top:1px solid var(--line);padding:16px 0}.cue time{color:var(--mint);padding-top:3px}.cue p{margin-bottom:0}.cue h2{font-size:1.12rem}.checks{padding-left:1.35em}.checks li{margin:.35rem 0}
+footer{display:flex;justify-content:space-between;gap:18px;border-top:1px solid var(--line);padding-top:18px;margin-top:36px;font-size:.9rem}
+@media(max-width:800px){.mast,.shell{width:calc(100% - 32px)}.shell{display:block;padding-top:14px}nav{position:static;margin-bottom:27px}nav ul{display:flex;flex-wrap:wrap}nav a{padding:8px 7px}nav a span{display:none}.channel{padding:10px}}
+@media(max-width:520px){.columns{grid-template-columns:1fr;gap:13px}.mast>span{max-width:105px;text-align:right}.cue{grid-template-columns:52px 1fr}.channel svg text{font-size:24px}}
+@media print{:root{color-scheme:light;background:white;color:#111;--ink:#111;--dim:#333;--line:#aaa;--mint:#124b40;--warm:#684100}nav,footer,.actions,.copy,.copy-status{display:none!important}.shell,.mast{width:100%;display:block}.page[hidden]{display:block!important}.page+.page{break-before:page}pre,.note,.channel{background:#f2f5f6;color:#111}.channel svg text{fill:#152433}.channel svg [stroke="#78eed5"]{stroke:#116454}.channel svg [stroke="#ffd197"]{stroke:#82521a}pre{white-space:pre-wrap;overflow-wrap:anywhere}details>*{display:block!important}h1{font-size:34pt}}
+</style>
+</head>
+<body>
+<header><div class="mast"><a class="brand" href="#overview"><svg width="30" height="23" viewBox="0 0 30 23" aria-hidden="true"><path d="M2 11.5h3l3-5 4 11 4-15 4 18 4-9h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>SonicBridge</a><span>Hackathon field guide</span></div></header>
+<div class="shell">
+<nav aria-label="Guide pages"><ul>
+<li><a href="#overview"><span>01</span>Overview</a></li>
+<li><a href="#setup"><span>02</span>Set up laptops</a></li>
+<li><a href="#rehearsal"><span>03</span>Rehearse</a></li>
+<li><a href="#presentation"><span>04</span>Present</a></li>
+<li><a href="#fallback"><span>05</span>Troubleshoot</a></li>
+</ul></nav>
+<main>
+<section class="page" id="overview" aria-labelledby="overview-title">
+<h1 id="overview-title" tabindex="-1">Send data.<br>Hear the reply.</h1>
+<p class="lead">Two laptops exchange short messages as sound. Show judges the live link, then let them rescue an interrupted transfer in a controlled simulation.</p>
+<div class="actions"><a class="primary" href="#setup">Set up both laptops</a><a class="subtle" href="#presentation">Open the three-minute script</a></div>
+<figure class="channel">
+<svg viewBox="0 0 690 220" role="img" aria-labelledby="signal-title">
+<title id="signal-title">Laptop A sends data through the air. Laptop B returns an acknowledgment through the air.</title>
+<g fill="#172b3c" stroke="#7c9db4" stroke-width="2"><rect x="23" y="62" width="144" height="91" rx="8"/><path d="M12 155h166l-13 11H25Z"/><rect x="523" y="62" width="144" height="91" rx="8"/><path d="M512 155h166l-13 11H525Z"/></g>
+<g fill="none" stroke="#78eed5" stroke-width="2.5" stroke-linejoin="round"><path d="M53 110h12l7-12 10 25 12-35 12 32 7-10h24"/><path d="M190 82h25l12-12 12 25 12-40 12 49 12-22h18l10-14 12 26 12-40 12 49 12-21h20l10-13 12 26 12-40 12 47 12-20h60m-10-7 10 7-10 7"/><path d="m565 108 12 12 32-32"/></g>
+<path d="M500 141H190m10-7-10 7 10 7" fill="none" stroke="#ffd197" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 4"/>
+<g fill="#edf5fa" font-size="17" font-family="system-ui" text-anchor="middle"><text x="345" y="34">DATA</text><text x="345" y="180">ACKNOWLEDGMENT</text></g>
+</svg>
+<figcaption><span><strong>Laptop A</strong> · sender</span><span><strong>Laptop B</strong> · receiver</span></figcaption>
+</figure>
+<p class="block">Bring two laptops with speakers and microphones, both chargers, and the display adapter you plan to use. Assign one person to present and another to operate laptop B.</p>
+</section>
+<section class="page" id="setup" aria-labelledby="setup-title">
+<h1 id="setup-title" tabindex="-1">Set up both laptops</h1>
+<p class="lead">Repeat the setup on each laptop before the event. Keep both copies on the same revision. Run the commands one line at a time and resolve errors before continuing.</p>
+<ol class="steps">
+<li>Install Python 3.12 or 3.13 and Node.js 22. Check <code>node --version</code> and <code>npm --version</code>. <a href="https://www.python.org/downloads/">Python</a> · <a href="https://nodejs.org/en/download">Node.js</a></li>
+<li>Sign into GitHub with access to the private <a href="https://github.com/GhostInHex/sonicbridge">SonicBridge repository</a>. Choose <strong>Code → Download ZIP</strong> and extract it, or clone the repository.</li>
+<li>Open your terminal in the project folder. Check for <code>requirements.txt</code> and the <code>web</code> and <code>sonicbridge</code> folders.</li>
+</ol>
+<div class="block">
+<details open><summary>Windows PowerShell</summary>
+<div class="command"><pre><code>py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+npm.cmd --prefix web ci
+npm.cmd --prefix web run build
+.\.venv\Scripts\python.exe -m sounddevice
+.\.venv\Scripts\python.exe -m uvicorn sonicbridge.app:app --host 127.0.0.1 --port 8000</code></pre></div>
+<p>If you installed Python 3.13, use <code>py -3.13</code>. If <code>py</code> is unavailable, check <code>python --version</code> and then use <code>python -m venv .venv</code>.</p></details>
+<details open><summary>macOS and Linux</summary>
+<p>On Debian or Ubuntu, install the audio runtime and virtual environment package first.</p>
+<div class="command"><pre><code>sudo apt-get update
+sudo apt-get install -y python3-venv libportaudio2</code></pre></div>
+<p>On macOS or Linux, run these from the project folder after confirming <code>python3 --version</code>.</p>
+<div class="command"><pre><code>python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+npm --prefix web ci
+npm --prefix web run build
+.venv/bin/python -m sounddevice
+.venv/bin/python -m uvicorn sonicbridge.app:app --host 127.0.0.1 --port 8000</code></pre></div></details>
+</div>
+<p class="note"><strong>Check the build.</strong> On each laptop, leave Uvicorn running and open <code>http://127.0.0.1:8000</code>. In Simulation, send <code>Ready</code> with a blank passphrase. Look for the exact text under Received and <strong>All packets acknowledged</strong> in Packet log.</p>
+<p>On show day, run only your OS’s final Uvicorn command. Keep the terminal open. Each browser uses its own laptop’s local URL.</p>
+</section>
+<section class="page" id="rehearsal" aria-labelledby="rehearsal-title">
+<h1 id="rehearsal-title" tabindex="-1">Rehearse the live link</h1>
+<p class="lead">Start about 30 cm apart in a quiet room. Select built-in audio on both laptops and keep the speakers at moderate volume.</p>
+<div class="columns">
+<section><h2>Laptop B · listen first</h2><ol><li>Set Channel to <strong>Speaker + microphone</strong>.</li><li>Choose <strong>Receive</strong>.</li><li>Select the built-in mic and speaker or verify both system defaults. Leave the passphrase blank.</li><li>Click <strong>Start listening</strong>. Confirm the status reads <strong>listening</strong>.</li></ol></section>
+<section><h2>Laptop A · send second</h2><ol><li>Choose <strong>Speaker + microphone → Send</strong>. Set the mic and speaker and leave the passphrase blank.</li><li>Click <strong>Test link</strong>. Wait for <strong>Peer replied</strong>.</li><li>Use Adaptive or the suggested profile. Type <code>HELLO</code> and click <strong>Transmit through sound</strong>.</li><li>Check for <strong>All packets acknowledged</strong> on A and exact text under <strong>Received</strong> on B.</li></ol></section>
+</div>
+<div class="block"><h2>Repeat under stage conditions</h2><ul class="checks"><li>Confirm A still plays through its local speaker when connected to the projector.</li><li>Close call apps and disconnect headsets. Rehearse with the same placement you plan to use.</li><li>After setup, repeat with Wi-Fi and Bluetooth off to check the offline claim.</li></ul></div>
+<p class="note"><strong>Two directions matter.</strong> A reply proves B heard A and A heard B. If B gets the text but A times out, inspect B’s speaker and A’s mic.</p>
+<div class="block"><h2>Optional encrypted transfer</h2><p>Stop B’s listener, enter the same passphrase of at least 12 characters on A and B, and restart listening on B. Send short text. B should mark it <strong>Authenticated</strong>. Use a throwaway demo phrase and type it off the projector.</p></div>
+</section>
+<section class="page" id="presentation" aria-labelledby="presentation-title">
+<h1 id="presentation-title" tabindex="-1">The three-minute demo</h1>
+<p class="lead">Ask a judge for a word. Let them hear it travel. Then give them the Resume button.</p>
+<div class="cue"><time>0:00</time><div><h2>Explain the link</h2><p>“Two ordinary laptops exchange digital packets. One speaker sends the data. The other sends an acknowledgment.” Project A and have B listening already.</p></div></div>
+<div class="cue"><time>0:25</time><div><h2>Send the judge’s word</h2><p>Ask for 4–8 characters. After a successful backstage probe, click <strong>Transmit through sound</strong>. Show the matching inbox entry on B and the ACK on A.</p></div></div>
+<div class="cue"><time>1:05</time><div><h2>Let a judge recover the transfer</h2><p>Say “This next run uses controlled simulation.” Click <strong>Run loss &amp; recovery demo</strong>. Point to two lost replies and the switch to Robust. When the saved transfer banner appears, let the judge click <strong>Resume transfer</strong>. Point out the first packet is already on the peer and the authenticated message appears once.</p></div></div>
+<div class="cue"><time>2:10</time><div><h2>Show the profile trade-off</h2><p>In <strong>Channel Lab</strong>, choose Interference and click <strong>Compare profiles</strong>. If time permits, repeat with Quiet. Show which profiles delivered the message and how much useful data they delivered per second in the simulation. <strong>Export CSV</strong> saves the results.</p></div></div>
+<div class="cue"><time>2:45</time><div><h2>Close with the use case</h2><p>“SonicBridge makes short offline exchanges possible with hardware people already have.”</p></div></div>
+<p class="note"><strong>Only 60 seconds?</strong> Run the labeled recovery simulation, show the retry and profile change, and let the judge click Resume.</p>
+<div class="block"><h2>Questions judges might ask</h2>
+<details><summary>What changes in Robust mode?</summary><p>Two pitches encode bits. Robust uses longer body symbols and error correction. Fast uses shorter body symbols. Every profile uses the same preamble and header.</p></details>
+<details><summary>How can a transfer survive a restart?</summary><p>The sender saves one outgoing checkpoint. The receiver saves verified chunks. On resume, the sender requests the peer’s received-chunk bitmap and sends only missing chunks.</p></details>
+<details><summary>Can it send a file? How private is it?</summary><p>The payload limit is 2,048 bytes. Optional shared-passphrase encryption protects the message contents in transit. Control packets are visible and the local inbox stores received contents in plaintext.</p></details>
+<details><summary>How far does it work?</summary><p>Report only the distances and conditions you rehearsed. The lab shows simulated throughput and delivery. Physical range needs its own measurement.</p></details>
+</div>
+</section>
+<section class="page" id="fallback" aria-labelledby="fallback-title">
+<h1 id="fallback-title" tabindex="-1">Recover on stage</h1>
+<p class="lead">Try the probe again after one quick hardware check. If the room still wins, move to the controlled demo.</p>
+<details open><summary>Probe times out or no one hears the tones</summary><p>Check that B is listening. Unmute both speakers, select both built-in mics explicitly, bring the laptops closer, and try again. Check the OS microphone permission for the terminal or Python process and restart the service after a permission change.</p></details>
+<details><summary>Browser will not load the dashboard</summary><p>Check the local Uvicorn terminal. If port 8000 is busy, use <code>--port 8001</code> and open <code>http://127.0.0.1:8001</code> on that laptop. If the page shows a 404, run the web build and restart Uvicorn. If PortAudio is missing on Debian or Ubuntu, install <code>libportaudio2</code>.</p></details>
+<details><summary>The peer cannot unlock the message</summary><p>Stop B, correct its shared passphrase, and start it listening. On A, click Resume transfer.</p></details>
+<details><summary>Recovery demo button is disabled</summary><p>Stop any active operation. If a saved transfer is in the way, resume it or discard its checkpoint. To preserve the checkpoint, use the other laptop for the demo after stopping its listener.</p></details>
+<p class="note"><strong>Switch to simulation.</strong> Say “We’re switching to a controlled simulation for the recovery sequence.” Click <strong>Run loss &amp; recovery demo</strong> on an idle laptop with no saved transfer. You can show the same decoder, retry logic, and resume handshake without a live acoustic link.</p>
+<div class="block"><h2>Before you walk on</h2><ul class="checks"><li>Both laptops plugged in and audio outputs checked.</li><li>B listening and A has passed the backstage probe.</li><li>Recovery demo rehearsed and no leftover checkpoint.</li><li>Judges invited to the private repo if access is required.</li></ul></div>
+</section>
+<footer><a href="../HACKATHON_GUIDE.md">Text field guide</a><a href="https://github.com/GhostInHex/sonicbridge">GitHub repository</a></footer>
+</main>
+</div>
+<script>
+const pages = [...document.querySelectorAll('.page')];
+const links = [...document.querySelectorAll('nav a')];
+function showPage(focus = false) {
+  const page = pages.find(item => '#' + item.id === location.hash) || pages[0];
+  pages.forEach(item => { item.hidden = item !== page; });
+  links.forEach(link => {
+    if (link.hash === '#' + page.id) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
+  if (focus) { window.scrollTo(0, 0); page.querySelector('h1').focus({preventScroll: true}); }
+}
+window.addEventListener('hashchange', () => showPage(true));
+showPage();
+for (const command of document.querySelectorAll('.command')) {
+  const button = document.createElement('button');
+  const status = document.createElement('span');
+  button.className = 'copy'; button.textContent = 'Copy commands';
+  status.className = 'copy-status'; status.setAttribute('role', 'status');
+  button.addEventListener('click', async () => {
+    const code = command.querySelector('code');
+    try {
+      await navigator.clipboard.writeText(code.textContent);
+      status.textContent = 'Copied';
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      const selection = window.getSelection();
+      selection.removeAllRanges(); selection.addRange(range);
+      status.textContent = 'Commands selected. Use your copy shortcut.';
+    }
+  });
+  command.append(button, status);
+}
+const detailStates = new Map();
+window.addEventListener('beforeprint', () => {
+  for (const detail of document.querySelectorAll('details')) {
+    detailStates.set(detail, detail.open);
+    detail.open = true;
+  }
+});
+window.addEventListener('afterprint', () => {
+  for (const [detail, state] of detailStates) detail.open = state;
+  detailStates.clear();
+});
+</script>
+</body>
+</html>
