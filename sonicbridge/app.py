@@ -12,7 +12,7 @@ from typing import Literal
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
@@ -21,7 +21,9 @@ from .compare import compare
 from .link import Audio, Cancelled, Message, Receiver, Simulation, check_cancel, send_payload
 from .seal import MAGIC, seal
 from .storage import Store
-from .modem import CHUNK, RATE, Kind, Packet, Profile
+from .modem import RATE, Kind, Packet, Profile
+from .postcards import POSTCARD_NAME, POSTCARDS, phone_page
+from .recordings import decode_sample, sample_wav
 
 
 class Devices(BaseModel):
@@ -70,6 +72,10 @@ class Station:
         self.probe_result = None
         self.comparison = []
         self.status = "idle"
+        self.transport = None
+        self.latest_delivery = None
+        self.last_signal = None
+        self.recording_result = None
         self.error = ""
         self.profile = None
         self.completed = self.total = 0
@@ -89,6 +95,10 @@ class Station:
             self.events.append({"id": self.event_id, "kind": kind, "message": message, "at": time()})
             if kind in self.counts:
                 self.counts[kind] += 1
+            if kind == "rx" and self.spectra:
+                self.last_signal = {
+                    "wave": self.wave, "spectra": list(self.spectra), "source": self.transport,
+                }
 
     @staticmethod
     def inbox_item(message, encrypted):
@@ -102,7 +112,8 @@ class Station:
 
     def deliver(self, message, encrypted):
         with self.lock:
-            self.inbox.append(self.inbox_item(message, encrypted))
+            self.latest_delivery = self.inbox_item(message, encrypted)
+            self.inbox.append(self.latest_delivery)
         label = " · authenticated" if encrypted else ""
         self.report("done", f"Received {message.name or 'message'} · {len(message.data)} bytes{label}")
 
@@ -130,12 +141,15 @@ class Station:
             return {
                 "checkpoint": checkpoint, "probe": self.probe_result, "comparison": self.comparison.copy(),
                 "status": self.status, "error": self.error, "profile": self.profile,
+                "transport": self.transport, "latest_delivery": self.latest_delivery,
+                "last_signal": self.last_signal, "recording": self.recording_result,
+                "postcards": POSTCARDS, "postcard_name": POSTCARD_NAME,
                 "completed": self.completed, "total": self.total, "quality": self.quality,
                 "goodput": self.goodput, "wave": self.wave, "spectra": list(self.spectra),
                 "events": list(self.events), "inbox": list(self.inbox), "counts": self.counts.copy(),
             }
 
-    def start(self, status, job, *, clear_probe=False, clear_comparison=False, require_empty=False):
+    def start(self, status, job, *, transport, clear_probe=False, clear_comparison=False, require_empty=False):
         with self.lock:
             if self.thread and self.thread.is_alive():
                 raise HTTPException(409, "An audio operation is already running")
@@ -143,6 +157,10 @@ class Station:
                 raise HTTPException(409, "Resume or discard the saved transfer first")
             self.cancel = Event()
             self.status, self.error = status, ""
+            self.transport = transport
+            self.latest_delivery = None
+            if transport == "recording":
+                self.recording_result = None
             if clear_probe:
                 self.probe_result = None
             if clear_comparison:
@@ -231,6 +249,11 @@ class Station:
                 self.comparison.append(row)
         compare(scenario, self.cancel, self.observe, self.report, publish)
 
+    def decode_recording(self):
+        result = decode_sample(self.cancel, self.observe, self.report)
+        with self.lock:
+            self.recording_result = result
+
 
 state_dir = Path(environ.get("SONICBRIDGE_STATE_DIR", Path.home() / ".local" / "share" / "sonicbridge"))
 station = Station(Store(state_dir / "station.sqlite3"))
@@ -262,6 +285,27 @@ def state():
     return station.snapshot()
 
 
+@app.get("/api/postcards/phone")
+def postcard_phone():
+    return HTMLResponse(phone_page(), headers={
+        "Content-Disposition": 'attachment; filename="sonicbridge-postcards.html"',
+        "Cache-Control": "no-store",
+    })
+
+
+@app.get("/api/recording/sample")
+def recording_sample():
+    return Response(sample_wav(), media_type="audio/wav", headers={
+        "Content-Disposition": 'attachment; filename="sonicbridge-sample.wav"',
+    })
+
+
+@app.post("/api/recording/decode", status_code=202)
+def recording_decode():
+    station.start("decoding", station.decode_recording, transport="recording")
+    return {"status": "decoding"}
+
+
 @app.get("/api/devices")
 def devices():
     try:
@@ -286,7 +330,8 @@ def send(options: Send):
     if options.passphrase and len(options.passphrase) < 12:
         raise HTTPException(422, "Use a shared passphrase of at least 12 characters")
     channel = Channel.model_validate(options.model_dump())
-    station.start("sending", lambda: station.new_send(channel, message, options.passphrase), require_empty=True)
+    station.start("sending", lambda: station.new_send(channel, message, options.passphrase),
+                  transport=channel.transport, require_empty=True)
     return {"status": "sending"}
 
 
@@ -296,26 +341,28 @@ def listen(options: Listen):
         station.report("info", "Listening for acoustic packets")
         station.audio(options).receive(Receiver(station.report, station.deliver,
                                                 passphrase=options.passphrase, store=station.store))
-    station.start("listening", job)
+    station.start("listening", job, transport="acoustic")
     return {"status": "listening"}
 
 
 @app.post("/api/probe", status_code=202)
 def probe(options: Channel):
-    station.start("probing", lambda: station.probe(options), clear_probe=True)
+    station.start("probing", lambda: station.probe(options), transport=options.transport, clear_probe=True)
     return {"status": "probing"}
 
 
 @app.post("/api/compare", status_code=202)
 def comparison(options: Compare):
-    station.start("comparing", lambda: station.compare(options.scenario), clear_comparison=True)
+    station.start("comparing", lambda: station.compare(options.scenario),
+                  transport="simulation", clear_comparison=True)
     return {"status": "comparing"}
 
 
 @app.post("/api/demo", status_code=202)
 def demo():
     options = Channel(transport="simulation", drop_ack=2)
-    station.start("sending", lambda: station.new_send(options, DEMO_MESSAGE, DEMO_PHRASE, demo=True), require_empty=True)
+    station.start("sending", lambda: station.new_send(options, DEMO_MESSAGE, DEMO_PHRASE, demo=True),
+                  transport="simulation", require_empty=True)
     return {"status": "sending"}
 
 
@@ -336,7 +383,7 @@ def resume(options: Listen):
         if station.store.pending() != checkpoint:
             raise RuntimeError("The saved transfer changed. Reload and try again.")
         station.send(channel, transfer, size, payload, passphrase, resumed=True)
-    station.start("sending", job)
+    station.start("sending", job, transport=channel.transport)
     return {"status": "sending"}
 
 

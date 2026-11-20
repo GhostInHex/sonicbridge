@@ -102,11 +102,16 @@ def tones(width):
     return (0.25 * np.sin(2 * np.pi * np.array(FREQUENCIES)[:, None] * t)).astype(np.float32)
 
 
-def encode(packet):
+def packet_bits(packet):
     prefix = np.concatenate((SYNC, to_bits(packet.header())))
+    return prefix, body_bits(packet.body(), packet.profile)
+
+
+def encode(packet):
+    prefix, body = packet_bits(packet)
     return np.concatenate((
         tones(Profile.BALANCED.samples)[prefix].ravel(),
-        tones(packet.profile.samples)[body_bits(packet.body(), packet.profile)].ravel(),
+        tones(packet.profile.samples)[body].ravel(),
     ))
 
 

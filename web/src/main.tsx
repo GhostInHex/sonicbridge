@@ -2,10 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { z } from 'zod'
 import './style.css'
+import '../../sonicbridge/postcard-art.css'
 
 const profileSchema = z.enum(['balanced', 'robust', 'fast'])
 const modeSchema = z.enum(['adaptive', 'balanced', 'robust', 'fast'])
 const transportSchema = z.enum(['simulation', 'acoustic'])
+const signalSourceSchema = z.enum(['simulation', 'acoustic', 'recording'])
+const signalSchema = z.object({ wave: z.array(z.number()), spectra: z.array(z.array(z.number())) })
 const messageSchema = z.object({ name: z.string(), size: z.number(), data: z.string(), text: z.string().nullable(), encrypted: z.boolean() })
 const scenarioSchema = z.enum(['quiet', 'interference'])
 const stateSchema = z.object({
@@ -17,10 +20,17 @@ const stateSchema = z.object({
     delivered: z.boolean(), acknowledged: z.boolean(), seconds: z.number(), goodput: z.number(),
     crc_failures: z.number(), packets_received: z.number(),
   })),
-  status: z.enum(['idle', 'sending', 'listening', 'probing', 'comparing', 'failed', 'complete']),
+  status: z.enum(['idle', 'sending', 'listening', 'probing', 'comparing', 'decoding', 'failed', 'complete']),
+  transport: signalSourceSchema.nullable(), latest_delivery: messageSchema.nullable(),
+  last_signal: signalSchema.extend({ source: signalSourceSchema }).nullable(),
+  recording: z.object({
+    text: z.string(), size: z.number(), packets: z.number(), crc_failures: z.number(), seconds: z.number(),
+  }).nullable(),
+  postcard_name: z.string(),
+  postcards: z.array(z.object({ id: z.string(), title: z.string(), scene: z.enum(['coast', 'dunes', 'alpine']) })),
   error: z.string(), profile: profileSchema.nullable(), completed: z.number(), total: z.number(),
-  quality: z.number().nullable(), goodput: z.number().nullable(), wave: z.array(z.number()),
-  spectra: z.array(z.array(z.number())),
+  quality: z.number().nullable(), goodput: z.number().nullable(),
+  ...signalSchema.shape,
   events: z.array(z.object({ id: z.number(), kind: z.string(), message: z.string(), at: z.number() })),
   inbox: z.array(messageSchema),
   counts: z.object({ tx: z.number(), rx: z.number(), ack: z.number(), retry: z.number(), timeout: z.number(), crc: z.number() }),
@@ -31,6 +41,9 @@ const devicesSchema = z.object({
 })
 type LinkState = z.infer<typeof stateSchema>
 type ReceivedMessage = z.infer<typeof messageSchema>
+const sourceLabels: Record<z.infer<typeof signalSourceSchema>, string> = {
+  acoustic: 'Speaker + microphone', simulation: 'Simulated channel', recording: 'Recorded WAV',
+}
 
 async function get<T>(path: string, schema: z.ZodType<T>, signal: AbortSignal) {
   const response = await fetch(path, { signal })
@@ -50,7 +63,10 @@ async function post(path: string, body: object) {
   }
 }
 
-function Signal({ wave, spectra }: Pick<LinkState, 'wave' | 'spectra'>) {
+function Signal({ wave, spectra, toneGuides = false, frozen = false }: z.infer<typeof signalSchema> & {
+  toneGuides?: boolean
+  frozen?: boolean
+}) {
   const waveform = useRef<HTMLCanvasElement>(null)
   const spectrogram = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
@@ -110,9 +126,59 @@ function Signal({ wave, spectra }: Pick<LinkState, 'wave' | 'spectra'>) {
     <div className="monitor-label"><span>Waveform</span><span>20 ms window</span></div>
     <canvas ref={waveform} aria-label="Audio waveform over 20 milliseconds" role="img" />
     <div className="monitor-label"><span>Spectrogram</span><span>0–4.8 kHz</span></div>
-    <canvas ref={spectrogram} aria-label="Recent audio frequency energy from 0 to 4.8 kilohertz" role="img" />
-    <div className="axis"><span>Earlier</span><span>Now</span></div>
+    <div className="spectrogram">
+      <canvas ref={spectrogram} aria-label="Audio frequency energy from 0 to 4.8 kilohertz" role="img" />
+      {toneGuides && [1200, 2200].map(frequency =>
+        <div key={frequency} className="tone-guide" style={{bottom: `${(frequency / 50 + 0.5) / 97 * 100}%`}}>
+          <span>{frequency / 1000} kHz</span>
+        </div>)}
+    </div>
+    <div className="axis"><span>Earlier</span><span>{frozen ? 'Packet verified' : 'Now'}</span></div>
   </section>
+}
+
+function Projector({ state, connectionError }: { state: LinkState | undefined; connectionError: string }) {
+  const [frozen, setFrozen] = useState<LinkState['last_signal']>(null)
+  const message = state?.latest_delivery
+  const postcard = state && message && message.name === state.postcard_name
+    ? state.postcards.find(card => btoa(card.id) === message.data)
+    : undefined
+  const result = postcard?.title ?? (message
+    ? message.text ?? message.name
+    : state?.status === 'listening' ? 'Waiting for a postcard' : 'Ready to receive')
+  const events = state?.events.filter(event => ['rx', 'done', 'retry', 'resume', 'timeout', 'crc'].includes(event.kind)).slice(-4) ?? []
+
+  return <>
+    <section className={'stage-result' + (postcard ? ' postcard-art' : '')} data-scene={postcard?.scene} aria-live="polite">
+      {postcard && <span className="postcard-sun" aria-hidden="true" />}
+      <div className="stage-result-copy">
+        <p className="eyebrow">{connectionError ? 'Disconnected' : state?.transport
+          ? sourceLabels[state.transport] : 'Projector view'}</p>
+        <h1>{result}</h1>
+        {message && <p>{postcard ? `Card ${postcard.id} · ` : ''}{message.size} payload bytes{message.encrypted ? ' · Authenticated' : ''}</p>}
+        {postcard && <p>Card ID received. Artwork loaded from this laptop.</p>}
+      </div>
+    </section>
+    <div className="layout stage-details">
+      <div className="stage-signal">
+        <div className="signal-actions">
+          <button className="quiet" type="button" disabled={!frozen && !state?.last_signal}
+            onClick={() => setFrozen(frozen ? null : state?.last_signal ?? null)}>
+            {frozen ? 'Return to live signal' : 'Freeze last signal'}
+          </button>
+          <span className="technical" role="status">{frozen ? `Frozen · ${sourceLabels[frozen.source]}` : 'Updates during transfer'}</span>
+        </div>
+        <Signal wave={frozen?.wave ?? state?.wave ?? []} spectra={frozen?.spectra ?? state?.spectra ?? []}
+          toneGuides frozen={!!frozen} />
+      </div>
+      <section className="panel activity">
+        <div className="panel-head"><h2>Transfer activity</h2></div>
+        {events.length ? <ol aria-label="Recent transfer activity">
+          {events.map(event => <li key={event.id}>{event.message}</li>)}
+        </ol> : <p className="empty">Verified packets and delivery updates appear here.</p>}
+      </section>
+    </div>
+  </>
 }
 
 function saveFile(blob: Blob, name: string) {
@@ -129,10 +195,13 @@ function download(message: ReceivedMessage) {
   saveFile(new Blob([bytes], { type: 'application/octet-stream' }), message.name)
 }
 
-function Comparison({ rows, disabled, run }: {
+function ChannelLab({ rows, disabled, run, recording, recordingStatus, decode }: {
   rows: LinkState['comparison']
   disabled: boolean
   run: (scenario: z.infer<typeof scenarioSchema>) => void
+  recording: LinkState['recording']
+  recordingStatus: string
+  decode: () => void
 }) {
   const [scenario, setScenario] = useState<z.infer<typeof scenarioSchema>>('interference')
   const maximum = Math.max(1, ...rows.map(row => row.goodput))
@@ -161,6 +230,21 @@ function Comparison({ rows, disabled, run }: {
         <small>{row.delivered ? 'Delivered' : 'Incomplete'} · {row.retries} retries · {row.seconds.toFixed(1)} s modeled</small>
       </div>)}
     </div>}
+    <section className="recording" aria-labelledby="recording-title">
+      <h3 id="recording-title">Decode a recording</h3>
+      <p className="hint">Run the packet decoder on a bundled WAV without opening the microphone.</p>
+      <div className="lab-controls">
+        <button className="quiet" disabled={disabled} onClick={decode}>Decode sample WAV</button>
+        <a className="quiet" href="/api/recording/sample">Download sample WAV</a>
+      </div>
+      <div role="status" aria-live="polite">
+        {recordingStatus && <p className="hint">{recordingStatus}</p>}
+        {recording && <>
+          <p className="recording-message">{recording.text}</p>
+          <p className="technical">Recorded WAV · {recording.seconds.toFixed(2)} s · {recording.packets} verified {recording.packets === 1 ? 'packet' : 'packets'} · {recording.crc_failures} CRC failures · {recording.size} payload bytes</p>
+        </>}
+      </div>
+    </section>
   </section>
 }
 
@@ -180,7 +264,9 @@ function App() {
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [passphrase, setPassphrase] = useState('')
-  const busy = state?.status === 'sending' || state?.status === 'listening' || state?.status === 'probing' || state?.status === 'comparing'
+  const [projector, setProjector] = useState(false)
+  const busy = state?.status === 'sending' || state?.status === 'listening' || state?.status === 'probing' ||
+    state?.status === 'comparing' || state?.status === 'decoding'
   const unavailable = busy || pending || !state || !!connectionError
   const checkpoint = state?.checkpoint
   const devices = { input_device: input ? Number(input) : null, output_device: output ? Number(output) : null }
@@ -242,6 +328,7 @@ function App() {
   }
 
   const status = connectionError ? 'Disconnected' : state?.status ?? 'Connecting'
+  const demoCard = state?.postcards[0]
   const metrics = [
     state?.status === 'listening'
       ? ['Packets received', state.counts.rx, '']
@@ -253,9 +340,25 @@ function App() {
   return <>
     <header className="top"><div className="top-inner">
       <div className="brand"><span className="mark" aria-hidden="true"><i /><i /><i /><i /><i /></span>SonicBridge</div>
-      <span role="status" className={'status ' + (status === 'failed' || connectionError ? 'bad' : '')}><i />{status}</span>
+      <div className="top-actions">
+        <span role="status" className={'status ' + (status === 'failed' || connectionError ? 'bad' : '')}><i />{status}</span>
+        <button className="quiet" type="button" onClick={() => setProjector(!projector)}>{projector ? 'Dashboard' : 'Projector view'}</button>
+      </div>
     </div></header>
-    <main>
+    {projector ? <main className="stage">
+      <div className="stage-actions">
+        {busy ? <button type="button" className="secondary" disabled={pending} onClick={() => void action('/api/stop', {})}>Stop operation</button> :
+          <button type="button" className="primary" disabled={unavailable}
+            onClick={() => void action('/api/listen', { ...devices, passphrase })}>Start listening</button>}
+        {state && demoCard && <button type="button" className="quiet" disabled={unavailable || !!checkpoint}
+          onClick={() => void action('/api/send', {
+            transport: 'simulation', mode: 'balanced', name: state.postcard_name, data: btoa(demoCard.id),
+          })}>Simulate a postcard</button>}
+        <a className="quiet" href="/api/postcards/phone">Download phone sender</a>
+      </div>
+      {(error || state?.error || connectionError) && <p role="alert" className="bad-text">{error || state?.error || connectionError}</p>}
+      <Projector state={state} connectionError={connectionError} />
+    </main> : <main>
       <section className={busy ? "hero operating" : "hero"}>
         <div className="hero-signal" aria-hidden="true"><div /><div /><div /><div /><div /></div>
         <div className="hero-copy">
@@ -356,8 +459,10 @@ function App() {
             <p className="empty">Packet activity appears when the link runs.</p>}
         </section>
       </div>
-      <Comparison rows={state?.comparison ?? []} disabled={unavailable} run={scenario => void action('/api/compare', {scenario})} />
-    </main>
+      <ChannelLab rows={state?.comparison ?? []} disabled={unavailable} run={scenario => void action('/api/compare', {scenario})}
+        recording={state?.recording ?? null} decode={() => void action('/api/recording/decode', {})}
+        recordingStatus={state?.status === 'decoding' ? 'Decoding sample WAV…' : state?.transport === 'recording' ? state.error : ''} />
+    </main>}
   </>
 }
 

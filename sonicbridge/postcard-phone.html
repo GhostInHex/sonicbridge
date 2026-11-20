@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101724">
+<title>Send a postcard · SonicBridge</title>
+<style>
+/* POSTCARD_ART */
+* { box-sizing: border-box; }
+:root { color-scheme: dark; background: #101724; color: #ebf2fa; font: 16px Inter, system-ui, sans-serif; }
+body { margin: 0; }
+main { max-width: 420px; margin: auto; padding: 24px 18px; }
+.brand { font-weight: 750; color: #78eed5; }
+h1 { font-size: 2rem; letter-spacing: -.05em; line-height: 1.1; margin: 14px 0 8px; }
+p { color: #adbed3; line-height: 1.5; margin: 0 0 16px; }
+.postcard-art { min-height: 180px; border-radius: 12px; margin-bottom: 16px; background-color: #172131; }
+label { display: grid; gap: 6px; }
+button, select { width: 100%; min-height: 44px; border-radius: 8px; padding: 9px 12px; font: inherit; }
+select { border: 1px solid #3b4a60; background: #172131; color: #ebf2fa; }
+button { margin: 12px 0 8px; border: 1px solid transparent; background: #78eed5; color: #112824; font-weight: 750; }
+button:disabled { opacity: .65; }
+:focus-visible { outline: 2px solid #78eed5; outline-offset: 3px; }
+</style>
+</head>
+<body>
+<main>
+  <span class="brand">SonicBridge</span>
+  <h1>Send a postcard</h1>
+  <p>Hold your phone near the listening laptop. Set your media volume to a moderate level.</p>
+  <div class="postcard-art" data-scene="coast" aria-hidden="true"><span class="postcard-sun"></span></div>
+  <label>Postcard <select id="card"></select></label>
+  <button id="play" type="button">Play signal</button>
+  <p id="status" role="status"></p>
+  <noscript>This player needs JavaScript. Open it in a web browser.</noscript>
+</main>
+<script>
+const player = /* POSTCARD_DATA */;
+const select = document.getElementById('card');
+const artwork = document.querySelector('.postcard-art');
+const play = document.getElementById('play');
+const status = document.getElementById('status');
+const bytes = Uint8Array.from(atob(player.tones), byte => byte.charCodeAt(0));
+const view = new DataView(bytes.buffer);
+const samples = Float32Array.from({ length: bytes.length / 4 }, (_, index) => view.getFloat32(index * 4, true));
+const toneSamples = [
+  samples.subarray(0, player.symbolSamples),
+  samples.subarray(player.symbolSamples),
+];
+let audio;
+
+for (const card of player.cards) {
+  select.add(new Option(card.title, card.id));
+  card.used = 0;
+  try {
+    const used = Number(localStorage.getItem('sonicbridge:' + player.id + ':' + card.id));
+    if (Number.isInteger(used) && used >= 0 && used <= card.frames.length) card.used = used;
+  } catch {
+    // Some browsers disallow storage for local HTML files.
+  }
+}
+
+function selectedCard() {
+  return player.cards.find(card => card.id === select.value);
+}
+
+function showCard() {
+  const card = selectedCard();
+  artwork.dataset.scene = card.scene;
+  const remaining = card.frames.length - card.used;
+  play.disabled = !remaining;
+  status.textContent = remaining
+    ? remaining + ' plays available for this card.'
+    : 'Download a fresh phone sender for more plays.';
+}
+
+select.addEventListener('change', showCard);
+play.addEventListener('click', async () => {
+  const card = selectedCard();
+  const frame = card.frames[card.used];
+  if (!frame) return;
+  select.disabled = play.disabled = true;
+  try {
+    audio ??= new AudioContext();
+    await audio.resume();
+    const lead = player.sampleRate / 4;
+    const tail = player.sampleRate / 20;
+    const buffer = audio.createBuffer(1, lead + frame.length * player.symbolSamples + tail, player.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let index = 0; index < frame.length; index++) {
+      output.set(toneSamples[Number(frame[index])], lead + index * player.symbolSamples);
+    }
+    const source = audio.createBufferSource();
+    source.buffer = buffer;
+    source.connect(audio.destination);
+    source.onended = () => {
+      source.disconnect();
+      status.textContent = 'Signal played. Check the projector and wait for the laptop’s reply tones before playing again.';
+      select.disabled = false;
+      play.disabled = card.used === card.frames.length;
+      if (play.disabled) status.textContent += ' Download a fresh phone sender for more plays.';
+    };
+    source.start();
+    card.used++;
+    try {
+      localStorage.setItem('sonicbridge:' + player.id + ':' + card.id, String(card.used));
+    } catch {
+      // The open page still advances through its frames.
+    }
+    status.textContent = 'Playing signal…';
+  } catch {
+    status.textContent = 'Could not play the signal. Try again in a browser with audio enabled.';
+    select.disabled = play.disabled = false;
+  }
+});
+showCard();
+</script>
+</body>
+</html>

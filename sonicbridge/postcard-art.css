@@ -1,0 +1,42 @@
+.postcard-art {
+  isolation: isolate;
+  position: relative;
+  overflow: hidden;
+  background: var(--card-sky);
+}
+.postcard-art[data-scene="coast"] {
+  --card-sky: linear-gradient(170deg, #e7d0a1, #9cc2ab 57%, #458f87);
+  --card-sun: #fff3cd;
+  --card-ridge: #306666;
+  --card-land: #183e4c;
+}
+.postcard-art[data-scene="dunes"] {
+  --card-sky: linear-gradient(175deg, #4b365c, #d08978 64%, #ecaa73);
+  --card-sun: #ffdcaa;
+  --card-ridge: #a85756;
+  --card-land: #58394e;
+}
+.postcard-art[data-scene="alpine"] {
+  --card-sky: linear-gradient(170deg, #526b90, #c6d4d7 67%, #ebdcc4);
+  --card-sun: #fff5df;
+  --card-ridge: #738e9e;
+  --card-land: #34485e;
+}
+.postcard-art::before, .postcard-art::after, .postcard-art .postcard-sun {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+.postcard-art .postcard-sun {
+  background: radial-gradient(circle at 73% 29%, var(--card-sun) 0 8%, transparent 8.5%);
+}
+.postcard-art::before {
+  content: "";
+  background: var(--card-ridge);
+  clip-path: polygon(0 72%, 22% 46%, 36% 66%, 63% 42%, 100% 71%, 100% 100%, 0 100%);
+}
+.postcard-art::after {
+  content: "";
+  background: var(--card-land);
+  clip-path: polygon(0 82%, 21% 72%, 46% 83%, 70% 62%, 100% 77%, 100% 100%, 0 100%);
+}

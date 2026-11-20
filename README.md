@@ -25,6 +25,21 @@ Open `http://127.0.0.1:8000`. Keep the server bound to localhost. Audio plays an
 
 Use the [hackathon field guide](docs/HACKATHON_GUIDE.md) for setup on both laptops, the presentation script, and troubleshooting. Open the [visual guide](docs/hackathon/index.html) from an extracted or cloned copy in your browser. It works offline.
 
+### Send a postcard from a phone
+
+1. On the laptop, open **Projector view** and choose **Download phone sender**.
+2. Copy the downloaded HTML file to the phone and open it in a browser that runs JavaScript and plays audio. If the phone only previews downloaded HTML, serve the file from a static site and open it in the phone browser. The sender page needs no connection to the laptop.
+3. On the laptop, leave the shared passphrase blank and click **Start listening** in Projector view. For custom audio devices, select them under **Speaker + microphone** in the dashboard before opening Projector view.
+4. Choose a postcard on the phone, hold it near the laptop microphone, and press **Play signal**. Wait for the laptop's reply tones to finish before sending again.
+
+The signal carries a three-byte card ID. The laptop loads the artwork locally after validating the packet. The phone plays a fresh transfer ID each time and provides 12 plays per card per download. Download a fresh copy when rehearsing across browsers or after using all the plays. **Simulate a postcard** previews the reveal on one laptop.
+
+After a packet is verified, choose **Freeze last signal** in Projector view to hold the waveform and spectrogram captured through that packet. The guides mark 1.2 kHz and 2.2 kHz. **Return to live signal** resumes the monitor.
+
+For a repeatable fallback, open **Channel lab → Decode sample WAV**. SonicBridge reads the bundled recording through its packet decoder and displays the recovered text and CRC results. You can also download the WAV.
+
+### Demonstrate the two-way link and recovery
+
 Start with the live link if you have two laptops. Put one in **Receive** mode, then click **Test link** on the other and send a short message. The reply travels through the same audio channel as the message. The probe shows round-trip time, tone separation at the receiving laptop, and a suggested starting profile.
 
 Then show recovery on one laptop:

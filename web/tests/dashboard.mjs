@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
 
 const project = fileURLToPath(new URL('../../', import.meta.url))
@@ -82,8 +82,53 @@ try {
   assert.equal(csv.split('\n').length, 5)
   await page.setViewportSize({width: 375, height: 812})
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+
+  await page.getByRole('button', {name: 'Projector view'}).click()
+  await page.getByRole('button', {name: 'Simulate a postcard'}).click()
+  await page.getByRole('heading', {name: 'Pacific Coast'}).waitFor()
+  await page.getByText('Card P01 · 3 payload bytes', {exact: true}).waitFor()
+  await page.getByText('Simulated channel', {exact: true}).waitFor()
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+  await page.getByText('1.2 kHz', {exact: true}).waitFor()
+  await page.getByText('2.2 kHz', {exact: true}).waitFor()
+  await page.getByRole('button', {name: 'Freeze last signal'}).click()
+  await page.getByText('Frozen · Simulated channel', {exact: true}).waitFor()
+  const spectrum = page.getByRole('img', {name: /Audio frequency energy/})
+  const frozenPixels = await spectrum.evaluate(canvas => canvas.toDataURL())
+  await page.getByRole('button', {name: 'Simulate a postcard'}).click()
+  await page.getByRole('button', {name: 'Stop operation'}).waitFor()
+  await page.getByRole('heading', {name: 'Pacific Coast'}).waitFor()
+  assert.equal(await spectrum.evaluate(canvas => canvas.toDataURL()), frozenPixels)
+  await page.getByRole('button', {name: 'Return to live signal'}).click()
+  await page.getByText('Updates during transfer', {exact: true}).waitFor()
+
+  const phoneDownload = page.waitForEvent('download')
+  await page.getByRole('link', {name: 'Download phone sender'}).click()
+  const phonePath = join(directory, 'phone.html')
+  await (await phoneDownload).saveAs(phonePath)
+  const phone = await browser.newPage({viewport: {width: 390, height: 844}})
+  phone.on('pageerror', error => errors.push(error.message))
+  await phone.goto(pathToFileURL(phonePath).href)
+  await phone.getByLabel('Postcard').selectOption('P02')
+  await phone.getByRole('button', {name: 'Play signal'}).click()
+  await phone.getByText(/Signal played/).waitFor()
+  await phone.getByLabel('Postcard').selectOption('P03')
+  await phone.getByLabel('Postcard').selectOption('P02')
+  await phone.getByText('11 plays available for this card.').waitFor()
+
+  await page.getByRole('button', {name: 'Dashboard', exact: true}).click()
+  await page.getByRole('button', {name: 'Decode sample WAV'}).click()
+  await page.getByText('Hello from a saved WAV.', {exact: true}).waitFor()
+  await page.getByText(/Recorded WAV.*1 verified packet.*0 CRC failures/).waitFor()
+  assert.equal(await page.locator('.inbox').getByText('Hello from a saved WAV.', {exact: true}).count(), 0)
+  const wavDownload = page.waitForEvent('download')
+  await page.getByRole('link', {name: 'Download sample WAV'}).click()
+  const wav = await readFile(await (await wavDownload).path())
+  assert.equal(wav.toString('ascii', 0, 4), 'RIFF')
+  assert.equal(wav.toString('ascii', 8, 12), 'WAVE')
+
   assert.deepEqual(errors, [])
-  console.log('Dashboard passed probe, loss recovery, restart resume, encrypted Fast file, comparison, CSV, and mobile checks.')
+  console.log('Dashboard passed probe, loss recovery, restart resume, encrypted Fast file, comparison, CSV, mobile, postcards, signal freeze, and WAV decode.')
 } finally {
   await browser?.close()
   await stopServer()
